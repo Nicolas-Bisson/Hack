@@ -11,6 +11,7 @@ import androidx.fragment.app.FragmentActivity;
 import android.content.pm.ActivityInfo;
 import android.location.Address;
 import android.location.Geocoder;
+import android.location.Location;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.CheckBox;
@@ -22,6 +23,8 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -30,6 +33,8 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.navigation.NavigationView;
 import com.google.maps.android.SphericalUtil;
 
@@ -40,13 +45,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
+
+
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, AsyncParserElectricalTerminal.Listener,
         AsyncParserPointOfInterest.Listener, GoogleMap.OnMarkerClickListener {
 
-    private static final int initialZoom = 12;
+    private static final int INITIAL_ZOOM = 12;
     private static final LatLng QUEBEC = new LatLng(46.829853, -71.254028);
-    private GoogleMap mMap;
 
+    private FusedLocationProviderClient providerClient;
+    private GoogleMap mMap;
     private int distanceCheckTerminal;
     private int distanceCheckInterest;
     private boolean isTerminalSelected;
@@ -75,8 +83,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         actionbar.setDisplayHomeAsUpEnabled(true);
         actionbar.setHomeAsUpIndicator(R.drawable.ic_menu);
 
-
-
         try
         {
             final InputStream FILE_ELECTRICAL_TERMINAL = this.getResources().openRawResource(R.raw.bornes);
@@ -90,7 +96,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         {
             System.out.println(e.toString());
         }
-
 
         markersTerminal = new ArrayList<>();
         markersInterest = new ArrayList<>();
@@ -108,6 +113,37 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         isTerminalSelected = false;
         indexTerminal = 0;
     }
+
+    private void moveCameraToDevicePosition(){
+
+        providerClient = LocationServices.getFusedLocationProviderClient(this);
+
+        try {
+            final Task location = providerClient.getLastLocation();
+            location.addOnCompleteListener(new OnCompleteListener() {
+                @Override
+                public void onComplete(@NonNull Task task) {
+                    if (task.isSuccessful()) {
+
+                        Location currentLocation = (Location) task.getResult();
+
+//                        LatLng currentLatLng = new LatLng(
+//                                currentLocation.getLatitude(),
+//                                currentLocation.getLongitude());
+
+                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(QUEBEC, INITIAL_ZOOM));
+                    }
+                    else {
+                        //indiquer à l'utilisateur que la position n'a pas pu être trouvé
+                    }
+                }
+            });
+
+        }catch (SecurityException e){
+
+        }
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
@@ -117,7 +153,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         return super.onOptionsItemSelected(item);
     }
-
 
     private void initSearch()
     {
@@ -154,7 +189,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         {
             Address address = list.get(0);
 
-            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(address.getLatitude(), address.getLongitude()), initialZoom));
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(address.getLatitude(), address.getLongitude()), INITIAL_ZOOM));
         }
 
 
@@ -173,7 +208,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(QUEBEC, initialZoom));
+        moveCameraToDevicePosition();
 
         initSearch();
         for (int i = 0; i < markersInterest.size(); i++)
